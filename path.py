@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-from typing import Dict
 
 from defines import WINDOWS, PLATFORM, ParameterError, WINDOWS_MAX_PATH
 
@@ -61,18 +60,4 @@ def adaptive(path: str):
         return windows(path)
     return unix(path)
 
-
-def permissions(path: str) -> Dict[str, bool]:
-    return {
-        'read': os.access(path, os.R_OK),
-        'write': os.access(path, os.W_OK),
-        'execute': os.access(path, os.X_OK)
-    }
-
-
-class permission:
-    def __init__(self, path: str):
-        self.read = os.access(path, os.R_OK)
-        self.write = os.access(path, os.W_OK)
-        self.execute = os.access(path, os.X_OK)
 
