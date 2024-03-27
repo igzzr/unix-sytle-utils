@@ -1,8 +1,19 @@
+"""
+This module provides functions to handle file paths in a platform-independent manner.
+
+Functions:
+    touncpath: Converts a path to a UNC path if it exceeds the maximum path length in Windows.
+    windows: Converts a path to a Windows-compatible path.
+    unix: Converts a path to a Unix-compatible path.
+    adaptive: Converts a path to a platform-compatible path based on the current operating system.
+"""
+
 import logging
 import os
 import re
 
-from defines import WINDOWS, PLATFORM, ParameterError, WINDOWS_MAX_PATH
+from defines import WINDOWS, PLATFORM, WINDOWS_MAX_PATH
+from errors import ParameterError
 
 
 def touncpath(path, maximum=WINDOWS_MAX_PATH):
