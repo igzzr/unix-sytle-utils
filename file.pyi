@@ -1,7 +1,5 @@
 from typing import overload, List, Set, Union, Dict, Type
 
-F_FORCE
-
 F_NOSET: int
 F_FORCE: int  # -f --force. default mode when file exists replace it.
 F_IGNORE: int  # -i. ignore same file when recursive. BTW, in unix this arg for prompt.

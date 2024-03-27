@@ -36,7 +36,7 @@ VALUE2NAME = {
     F_REPLACE: 'F_REPLACE',
 }
 NAME2VALUE = {}
-for k, v in VALUE2NAME:
+for k, v in VALUE2NAME.items():
     NAME2VALUE[v] = k
 
 Paths = Union[str, List, Set]
