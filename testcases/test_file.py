@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import unittest
 from typing import Dict
 
@@ -8,16 +9,17 @@ from file import copy, F_FORCE, F_UPDATE, F_IGNORE
 
 
 def str2timestamp(s: str) -> float:
-    import time
     return time.mktime(time.strptime(s, "%Y-%m-%d %H:%M:%S"))
 
 
 def timestamp2str(t: float) -> str:
-    import time
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t))
 
 
 class TestCopyFile(unittest.TestCase):
+    """
+        Test cases for the copy function in the file module.
+    """
     if PLATFORM == UNIX:
         HomePath = os.getenv("HOME")
     elif PLATFORM == WINDOWS:
@@ -173,7 +175,7 @@ class TestCopyFile(unittest.TestCase):
             os.makedirs(filepath, exist_ok=True)
             return filepath
 
-        with open(filepath, 'w') as fp:
+        with open(filepath, 'w', encoding='utf-8') as fp:
             fp.write(testdata.get("content", ""))
             logging.info("Write file: %s", filepath)
             logging.info("Content: %s", testdata.get("content"))
@@ -184,7 +186,7 @@ class TestCopyFile(unittest.TestCase):
     def readfile(self, filename: str) -> str:
         if self.Root not in filename:
             filename = os.path.join(self.Root, filename)
-        with open(filename, 'r') as fp:
+        with open(filename, 'r', encoding='utf-8') as fp:
             return fp.read()
 
 

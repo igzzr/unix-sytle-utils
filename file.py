@@ -1,3 +1,19 @@
+"""
+This module provides functions for file and directory operations.
+
+It includes functions for copying, moving, and removing files or directories.
+The functions support various modes of operation, such as replacing existing files, updating files, and ignoring files.
+
+Functions:
+    copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
+        Copies a file or directory from a source path to a destination path.
+
+    move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
+        Moves a file or directory from a source path to a destination path.
+
+    remove(src: Paths, mode: int = F_NOSET) -> None:
+        Removes a file or directory from a source path.
+"""
 import glob
 import logging
 import os
@@ -304,7 +320,7 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
     _remove(src, dest, mode=mode)
 
 
-def move(src: Union[str, List, Set], dest: str, mode: int = F_FORCE) -> None:
+def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
     """Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -324,5 +340,3 @@ def move(src: Union[str, List, Set], dest: str, mode: int = F_FORCE) -> None:
     return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_move)
 
 
-if __name__ == '__main__':
-    move("D:\\b", 'D:\\1\\', mode=F_FORCE | F_RECURSIVE)
