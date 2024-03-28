@@ -5,7 +5,7 @@ import unittest
 import uuid
 from typing import Dict
 
-from defines import PLATFORM, WINDOWS, UNIX
+from ust.defines import PLATFORM, WINDOWS, UNIX
 from file import copy, F_FORCE, F_UPDATE, F_IGNORE, F_RECURSIVE
 
 
