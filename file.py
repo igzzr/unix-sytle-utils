@@ -59,18 +59,35 @@ Paths = Union[str, List, Set]
 
 
 def _generate_dirs(path: str) -> None:
+    """Generates directories for a given path.
+
+    Args
+        path (str): The path for which to generate directories.
+
+    Returns
+        None
+    """
     # generate for '/tmp/not_exist_sub_dir/file' -> '/tmp/not_exist_sub_dir'
     dirname = os.path.dirname(path)
     if dirname and not os.path.exists(dirname):
         os.makedirs(dirname, exist_ok=True)
-        logging.debug(f"Generate {dirname} ok.")
+        logging.debug("Generate %s ok." % dirname)
     # generate for '/tmp/not_exist_sub_dir/' -> '/tmp/not_exist_sub_dir'
     if path.endswith(os.sep) and not os.path.exists(path):
         os.makedirs(path)
-        logging.debug(f"Generate {path} ok.")
+        logging.debug("Generate %s ok." % path)
 
 
 def _copy_by_command(src: str, dest: str) -> None:
+    """Copy file or directory by command.
+
+    Args:
+        src (str): The source file or directory path.
+        dest (str): The destination path.
+
+    Returns:
+        None
+    """
     if PLATFORM == WINDOWS:
         if os.path.isdir(src):
             cmd = f'xcopy "{src}" "{dest}" /s /e /y /k /o /q'
@@ -78,13 +95,23 @@ def _copy_by_command(src: str, dest: str) -> None:
             cmd = f'xcopy "{src}" "{dest}" /y /q/ /f'
     else:
         cmd = f'cp -rf "{src}" "{dest}"'
-    logging.info(f"Command: {cmd}")
+    logging.info("Command: %s " % cmd)
     code = os.system(cmd)
     if code != 0:
         raise OSError(f"Can't copy file '{src}' to '{dest}'")
 
 
 def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
+    """Recursively copy files from source directory to destination directory.
+
+    Args:
+        src (str): The source directory path.
+        dest (str): The destination directory path.
+        mode (int): The mode of copying.
+
+    Returns:
+        None
+    """
     if not os.path.isdir(src):
         return
     for root, folders, files in os.walk(src):
@@ -105,12 +132,29 @@ def entry(src: Paths,
           *,
           unsupported_mode: int,
           enter_func: Callable[[str, str, int], None]) -> None:
+    """Entry function for file operations.
+
+    This function serves as an entry point for file operations such as copy, move, and remove.
+    It checks the mode of operation and the type of source path, and then calls the appropriate function.
+
+    Args:
+        src (Paths): The source file or directory path.
+        dest (str): The destination path.
+        mode (int, optional): The mode of operation. Defaults to F_REPLACE.
+        unsupported_mode (int): The mode that is not supported by the operation.
+        enter_func (Callable[[str, str, int], None]): The function to be called for the operation.
+
+    Raises:
+        UnsupportedModeError: If the mode of operation is not supported.
+        InvalidArgType: If the type of source path is not valid.
+        TypeError: If the type of 'src' is not one of Paths.
+    """
     if mode & unsupported_mode:
         raise UnsupportedModeError(
             f"Unsupported mode: '{VALUE2NAME.get(unsupported_mode, 'Unknown')}:{unsupported_mode}'")
 
-    if mode & F_TARGET_DIRECTORY and not (isinstance(src, List) or isinstance(src, Set)):
-        raise InvalidArgType(f"Only List or Set type is allowed when F_TARGET_DIRECTORY is set.")
+    if mode & F_TARGET_DIRECTORY and not (isinstance(src, (List, Set))):
+        raise InvalidArgType("Only List or Set type is allowed when F_TARGET_DIRECTORY is set.")
 
     if isinstance(src, str):
         if "*" in src or "?" in src:
@@ -177,6 +221,18 @@ def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
 
 
 def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
+    """ Copies a file or directory from a source path to a destination path.
+
+    Mainly function of copy
+
+    Args:
+        src (str): The source file or directory path to copy.
+        dest (str): The destination path where to copy the source file or directory.
+        mode (int): The mode of copying.
+
+    Returns:
+        None
+    """
     src = adaptive(src)
     dest = adaptive(dest)
     if not os.access(src, os.R_OK):
@@ -207,6 +263,16 @@ def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
 
 
 def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
+    """ Copies a file from a source path to a destination path.
+
+    Args:
+        src (str): The source file or directory path to copy.
+        dest (str): The destination path where to copy the source file or directory.
+        mode (int): The mode of copying.
+
+    Returns:
+        None
+    """
     src = adaptive(src)
     dest = adaptive(dest)
     if os.path.isdir(dest):
@@ -228,11 +294,22 @@ def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
 
 
 def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
+    """
+    Copies a directory from a source path to a destination path.
+    Args:
+        src (str): The source file or directory path to copy.
+        dest (str): The destination path where to copy the source file or directory.
+        mode (int): The mode of copying.
+
+    Returns:
+        None
+    """
     src = adaptive(src)
     dest = adaptive(dest)
     if os.path.exists(dest):
         if mode & F_RECURSIVE:
-            return _copy_recursively(src, dest, mode)
+            _copy_recursively(src, dest, mode)
+            return
         if mode & F_REPLACE:
             remove(dest)
         elif mode & F_UPDATE:
@@ -248,6 +325,15 @@ def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
 
 
 def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
+    """Removes a file or directory from a source path.
+    Args:
+        path (str): The source file or directory path to remove.
+        dest (str): Redundant arg, not used.
+        mode (int): The mode of removing.
+
+    Returns:
+        None
+    """
     if dest:
         raise InvalidArgType("Unsupported arg 'dest'")
     # when remove mode not set, both file and directory will be removed.
@@ -301,6 +387,16 @@ def remove(src: Paths, mode: int = F_NOSET) -> None:
 
 
 def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
+    """ Moves a file or directory from a source path to a destination path.
+
+    Args:
+        src (str): The source file or directory path to move.
+        dest (str): The destination path where to move the source file or directory.
+        mode (int): The mode of moving.
+
+    Returns:
+        None
+    """
     def _sig(file):
         st = os.stat(file)
         return stat.S_IFMT(st.st_mode)

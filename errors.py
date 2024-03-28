@@ -15,7 +15,6 @@ class FileRemoveError(FileHandlingError):
     """
         Exception raised for errors in the file removal operation.
     """
-
     pass
 
 
