@@ -6,7 +6,7 @@ import uuid
 from typing import Dict
 
 from ust.defines import PLATFORM, WINDOWS, UNIX
-from file import copy, F_FORCE, F_UPDATE, F_IGNORE, F_RECURSIVE
+from ust.file import copy, F_FORCE, F_UPDATE, F_IGNORE, F_RECURSIVE
 
 
 def str2timestamp(s: str) -> float:

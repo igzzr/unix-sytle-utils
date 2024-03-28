@@ -12,8 +12,8 @@ import logging
 import os
 import re
 
-from ust.defines import WINDOWS, PLATFORM, WINDOWS_MAX_PATH
-from ust.errors import ParameterError
+from .defines import WINDOWS, PLATFORM, WINDOWS_MAX_PATH
+from .errors import ParameterError
 
 
 def touncpath(path, maximum=WINDOWS_MAX_PATH):

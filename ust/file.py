@@ -23,9 +23,9 @@ import stat
 from typing import Callable
 from typing import List, Set, Union
 
-from defines import PLATFORM, WINDOWS, UNIX
-from errors import FileRemoveError, UnsupportedModeError, FileMoveError, InvalidArgType
-from path import adaptive
+from .defines import PLATFORM, WINDOWS, UNIX
+from .errors import FileRemoveError, UnsupportedModeError, FileMoveError, InvalidArgType
+from .path import adaptive
 
 F_NOSET = 0
 F_FORCE = 1  # -f --force. default mode when file exists replace it.
