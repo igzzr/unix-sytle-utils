@@ -12,8 +12,8 @@ import logging
 import os
 import re
 
-from ust.defines import WINDOWS, PLATFORM, WINDOWS_MAX_PATH
-from ust.errors import ParameterError
+from .defines import WINDOWS, PLATFORM, WINDOWS_MAX_PATH
+from .errors import ParameterError
 
 
 def touncpath(path, maximum=WINDOWS_MAX_PATH):
@@ -72,3 +72,11 @@ def adaptive(path: str):
     return unix(path)
 
 
+def is_filepath(anchor: str) -> bool:
+    if os.path.exists(anchor):
+        return True
+    if PLATFORM == WINDOWS:
+        rgx = r"(^(?:[a-zA-Z]:\\)|(?:\\\\\?\\UNC)|(?:\\\\[\w.?]+\\[\w.$?]+))(?:[\w\-]+\\)*[\w\-]+([\w\-.])+$"
+    else:
+        rgx = r"^(/)?([a-zA-Z0-9_.-]+(/)?)+$"
+    return re.match(rgx, anchor) is not None

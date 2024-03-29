@@ -1,12 +1,14 @@
 import logging
 import os
+import re
 import time
 import unittest
 import uuid
-from typing import Dict
+from typing import Dict, Sequence
 
 from ust.defines import PLATFORM, WINDOWS, UNIX
-from file import copy, F_FORCE, F_UPDATE, F_IGNORE, F_RECURSIVE
+from ust.errors import InvalidArgType
+from ust.file import copy, F_FORCE, F_UPDATE, F_IGNORE, F_RECURSIVE, grep, remove
 
 
 def str2timestamp(s: str) -> float:
@@ -20,6 +22,18 @@ def timestamp2str(t: float) -> str:
 def get_uuid():
     # Generate a random UUID
     return str(uuid.uuid4())
+
+
+def is_sequence_same(s1: Sequence, s2: Sequence) -> bool:
+    if len(s1) != len(s2):
+        return False
+    # sum the hash code
+    hash1 = 0
+    hash2 = 0
+    for c1, c2 in zip(s1, s2):
+        hash1 += hash(c1)
+        hash2 += hash(c2)
+    return hash1 == hash2
 
 
 class BasicCopyTest(unittest.TestCase):
@@ -277,6 +291,86 @@ class TestRecurCopyFile(BasicCopyTest):
                 assert content == self.readfile(filename.replace(dst, src))
                 cnt += 1
         assert cnt == len(testdata.get("expect").get("files"))
+
+
+class TestGrep(BasicCopyTest):
+    Data = {
+        "grep file by regex string": {
+            "filename": "1.txt",
+            "content": "Hello World",
+            "regex": r'o\w',
+            'expect': ['or']
+        },
+        "grep file by pattern": {
+            "filename": "1.txt",
+            "content": "Hello World",
+            "regex": re.compile(r'o\s?\w+'),
+            'expect': ['o World']
+        },
+        "grep file but file not found": {
+            "filename": "1.txt",
+            "content": "Hello World",
+            "regex": re.compile(r'o\s?\w+'),
+            'expect': ['o World']
+        },
+        'grep file but anchor is a dir': {
+            "filename": "tmp/",
+            "content": "Hello World",
+            "regex": re.compile(r'o\s?\w+'),
+            'expect': ['o World']
+        },
+        'grep file multi': {
+            "filename": "1.txt",
+            "content": "To be or not to be.",
+            "regex": re.compile(r'[TtOo]{2}'),
+            'expect': ['To', 'to', 'ot']
+        },
+        'grep string multi': {
+            "content": "To be or not to be\n That is a question.",
+            "regex": re.compile(r'[TtOo]{2}'),
+            'expect': ['To', 'to', 'ot']
+        }
+    }
+
+    def test_grep_file_by_regex_string(self):
+        testdata = self.Data.get("grep file by regex string")
+        filepath = self.generate(testdata)
+
+        found = grep(filepath, testdata.get("regex"))
+
+        self.assertEqual(found, testdata.get('expect'))
+
+    def test_grep_file_by_pattern(self):
+        testdata = self.Data.get("grep file by pattern")
+        filepath = self.generate(testdata)
+        found = grep(filepath, testdata.get("regex"))
+
+        self.assertEqual(found, testdata.get('expect'))
+
+    def test_grep_file_but_file_not_found(self):
+        testdata = self.Data.get("grep file by pattern")
+        filepath = self.generate(testdata)
+        with self.assertRaises(InvalidArgType):
+            remove(filepath)
+            grep(filepath, testdata.get("regex"))
+
+    def test_grep_file_but_is_a_dir(self):
+        testdata = self.Data.get("grep file but anchor is a dir")
+        filepath = self.generate(testdata)
+        with self.assertRaises(InvalidArgType):
+            grep(filepath, testdata.get("regex"))
+
+    def test_grep_file_multi(self):
+        testdata = self.Data.get("grep file multi")
+        filepath = self.generate(testdata)
+        found = grep(filepath, testdata.get("regex"), index=-1)
+
+        self.assertTrue(is_sequence_same(found, testdata.get('expect')))
+
+    def test_grep_string_multi(self):
+        testdata = self.Data.get("grep string multi")
+        found = grep(testdata.get('content'), testdata.get('regex'), index=-1)
+        self.assertTrue(is_sequence_same(found, testdata.get('expect')))
 
 
 if __name__ == '__main__':
