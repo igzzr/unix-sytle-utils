@@ -23,9 +23,9 @@ import stat
 from typing import Callable
 from typing import List, Set, Union
 
-from .defines import PLATFORM, WINDOWS, UNIX
+from .defines import PLATFORM, WINDOWS, UNIX, WINDOWS_MAX_PATH
 from .errors import FileRemoveError, UnsupportedModeError, FileMoveError, InvalidArgType
-from .path import adaptive
+from .path import adaptive, is_filepath
 
 F_NOSET = 0
 F_FORCE = 1  # -f --force. default mode when file exists replace it.
@@ -56,6 +56,7 @@ for k, v in VALUE2NAME.items():
     NAME2VALUE[v] = k
 
 Paths = Union[str, List, Set]
+Pattern = Union[str, re.Pattern]
 
 
 def _generate_dirs(path: str) -> None:
@@ -101,7 +102,7 @@ def _copy_by_command(src: str, dest: str) -> None:
         raise OSError(f"Can't copy file '{src}' to '{dest}'")
 
 
-def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copy_recursively(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """Recursively copy files from source directory to destination directory.
 
     Args:
@@ -128,7 +129,7 @@ def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
 
 def entry(src: Paths,
           dest: str,
-          mode: int = F_REPLACE,
+          mode: int=F_REPLACE,
           *,
           unsupported_mode: int,
           enter_func: Callable[[str, str, int], None]) -> None:
@@ -171,7 +172,7 @@ def entry(src: Paths,
         enter_func(p, dest, mode)
 
 
-def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
+def copy(src: Paths, dest: str, mode: int=F_REPLACE) -> None:
     """Copies a file or directory from a source path to a destination path.
 
     For src is a normal string.
@@ -220,7 +221,7 @@ def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
     return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_copy)
 
 
-def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copy(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """ Copies a file or directory from a source path to a destination path.
 
     Mainly function of copy
@@ -262,7 +263,7 @@ def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
     return _copyfile(src=src, dest=dest, mode=mode)
 
 
-def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copyfile(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """ Copies a file from a source path to a destination path.
 
     Args:
@@ -293,7 +294,7 @@ def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copytree(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """
     Copies a directory from a source path to a destination path.
     Args:
@@ -324,7 +325,7 @@ def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
+def _remove(path: str, dest: str="", mode: int=F_NOSET) -> None:
     """Removes a file or directory from a source path.
     Args:
         path (str): The source file or directory path to remove.
@@ -362,7 +363,7 @@ def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
         raise FileRemoveError(f"Can't remove file '{path}'{os.stat(path)}")
 
 
-def remove(src: Paths, mode: int = F_NOSET) -> None:
+def remove(src: Paths, mode: int=F_NOSET) -> None:
     """Removes a file or directory from a source path.
 
     Both F_RM_DIR and F_RM_FILE are set by default.
@@ -386,7 +387,7 @@ def remove(src: Paths, mode: int = F_NOSET) -> None:
     return entry(src, "", mode, unsupported_mode=F_REPLACE | F_UPDATE | F_IGNORE, enter_func=_remove)
 
 
-def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
+def _move(src: str, dest: str, mode: int=F_FORCE) -> None:
     """ Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -397,6 +398,7 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
     Returns:
         None
     """
+
     def _sig(file):
         st = os.stat(file)
         return stat.S_IFMT(st.st_mode)
@@ -416,7 +418,7 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
     _remove(src, dest, mode=mode)
 
 
-def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
+def move(src: Paths, dest: str, mode: int=F_FORCE) -> None:
     """Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -436,3 +438,90 @@ def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
     return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_move)
 
 
+def _grep_file(anchor: str, regex: Pattern, index: int, encoding='utf-8') -> List[str]:
+    """
+    Searches for a regex pattern within a file.
+
+    Args:
+        anchor (str): The path to the file to be searched.
+        regex (Pattern): The regex pattern to search for.
+        index (int): If positive, returns the matching group. If negative, returns all matches.
+
+    Returns:
+        List[str]: A list of matching strings.
+
+    """
+    found: List[str] = []
+
+    pattern = regex
+    if isinstance(regex, str):
+        pattern = re.compile(regex)
+
+    with open(anchor, 'r', encoding=encoding, errors='ignore') as fp:
+        for line in fp:
+            if index < 0:
+                found.extend(pattern.findall(line))
+                continue
+            match = pattern.search(line)
+            if not match:
+                continue
+            found.append(match.group(index))
+    return found
+
+
+def _grep_string(anchor: str, regex: Pattern, index: int) -> List[str]:
+    """
+    Searches for a regex pattern within a string.
+
+    Args:
+        anchor (str): The string to be searched.
+        regex (Pattern): The regex pattern to search for.
+        index (int): If positive, returns the matching group. If negative, returns all matches.
+
+    Returns:
+        List[str]: A list of matching strings.
+
+    """
+    found: List[str] = []
+
+    pattern = regex
+    if isinstance(regex, str):
+        pattern = re.compile(regex)
+
+    for line in anchor.splitlines():
+        if index < 0:
+            found.extend(pattern.findall(line))
+            continue
+        match = pattern.match(line)
+        if not match:
+            continue
+        found.append(match.group(index))
+    return found
+
+
+def grep(anchor: str, regex: Pattern, index=0, encoding='utf-8') -> List[str]:
+    """
+    Searches for a regex pattern within a string or a file.
+
+    If the anchor is a file path, it searches within the file. If the anchor is a string, it searches within the string.
+
+    Args:
+        anchor (str): The string or file path to be searched.
+        regex (Pattern): The regex pattern to search for.
+        index (int, optional): If positive, returns the matching group. If negative, returns all matches. Defaults to 0.
+        encoding (str, optional): default utf-8
+        
+    Returns:
+        List[str]: A list of matching strings.
+
+    Raises:
+        InvalidArgType: If the anchor is a file-path-like string, but the file does not exist or is not a file.
+
+    """
+    if len(anchor) > WINDOWS_MAX_PATH:
+        anchor = anchor[:WINDOWS_MAX_PATH]
+    if is_filepath(anchor):
+        if os.path.isfile(anchor):
+            return _grep_file(anchor, regex, index, encoding=encoding)
+        raise InvalidArgType("The path '%s' is not a file or its not found." % anchor)
+    return _grep_string(anchor, regex, index)
