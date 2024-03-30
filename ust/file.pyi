@@ -1,5 +1,6 @@
 import re
 from typing import overload, List, Set, Union, Dict, Type
+
 # region Global define
 F_NOSET: int
 F_FORCE: int  # -f --force. default mode when file exists replace it.
@@ -21,6 +22,8 @@ NAME2VALUE: Dict[str, int]
 # region Type Alias
 Paths: Type[Union[str, List, Set]]
 Pattern: Type[Union[str, re.Pattern]]
+
+
 # endregion Type Alias
 
 @overload
@@ -60,3 +63,6 @@ def move(src: Set, dest: str, mode: int = F_FORCE) -> None: ...
 
 
 def grep(anchor: str, pattern: Pattern, index=-1) -> List[str]: ...
+
+
+def cmpfile(file1, file2, buffer:int) -> bool: ...

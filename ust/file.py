@@ -27,6 +27,7 @@ from .defines import PLATFORM, WINDOWS, UNIX, WINDOWS_MAX_PATH
 from .errors import FileRemoveError, UnsupportedModeError, FileMoveError, InvalidArgType
 from .path import adaptive, is_filepath
 
+# region cp rm mv global defines
 F_NOSET = 0
 F_FORCE = 1  # -f --force. default mode when file exists replace it.
 F_IGNORE = 2  # -i. ignore same file when recursive. BTW, in unix this arg for prompt.
@@ -57,7 +58,21 @@ for k, v in VALUE2NAME.items():
 
 Paths = Union[str, List, Set]
 Pattern = Union[str, re.Pattern]
+# endregion cp rm mv global defines
 
+# region cmp global defines
+C_SHADOW = 1  # only compare file sign
+C_BINARY = 2  # compare file as binaries
+C_TEXT = 4  # compare file as text
+C_IGNORE_BLANK_LINES = 8  # skip blank lines when compare text
+C_IGNORE_CASE = 16  # ignore case when compare text
+C_RECURSIVE = 32  # compare files recursively
+BUFFER_SIZE = 1024 * 4  # 1 page
+
+_cache = {}
+
+
+# endregion cmp global defines
 
 def _generate_dirs(path: str) -> None:
     """Generates directories for a given path.
@@ -525,3 +540,56 @@ def grep(anchor: str, regex: Pattern, index=0, encoding='utf-8') -> List[str]:
             return _grep_file(anchor, regex, index, encoding=encoding)
         raise InvalidArgType("The path '%s' is not a file or its not found." % anchor)
     return _grep_string(anchor, regex, index)
+
+
+def _sig(file):
+    st = os.stat(file)
+    sign = (stat.S_IFMT(st.st_mode),
+            st.st_size,
+            st.st_mtime)
+    _cache[file] = sign
+    return sign
+
+
+def cmpfile(file1, file2, mode: int) -> bool:
+    if file1 == file2:
+        return True
+    s1 = _sig(file1)
+    s2 = _sig(file2)
+    if s1[0] != stat.S_IFREG or s2[0] != stat.S_IFREG:
+        return False
+    if s2 == s1 and mode & C_SHADOW and not mode & C_BINARY:
+        return True
+    if mode & C_BINARY:
+        # when compare binary ,shadow means whether the file1 is inner file2
+        return _cmp_binaries(file1, file2, bool(mode & C_SHADOW))
+    if mode & C_TEXT:
+        return _cmp_text(file1, file2, mode)
+
+    return False
+
+
+def _cmp_binaries(file1: str, file2: str, shadow=False) -> bool:
+    s1 = _cache.get(file1)
+    s2 = _cache.get(file2)
+    len1 = s1[1]
+    len2 = s2[1]
+    if len1 != len2 and not shadow:
+        return False
+    if len1 > len2:
+        return False
+
+    with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
+        index = 0
+        while index < len1:
+            b1 = f1.read(BUFFER_SIZE)
+            b2 = f2.read(BUFFER_SIZE)
+            if b1 != b2:
+                return False
+            if not b1:
+                return True
+            index += len(b1)
+
+
+def _cmp_text(file1: str, file2: str, mode: int) -> bool:
+    pass
