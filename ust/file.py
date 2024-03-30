@@ -102,7 +102,7 @@ def _copy_by_command(src: str, dest: str) -> None:
         raise OSError(f"Can't copy file '{src}' to '{dest}'")
 
 
-def _copy_recursively(src: str, dest: str, mode: int=F_REPLACE) -> None:
+def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
     """Recursively copy files from source directory to destination directory.
 
     Args:
@@ -129,7 +129,7 @@ def _copy_recursively(src: str, dest: str, mode: int=F_REPLACE) -> None:
 
 def entry(src: Paths,
           dest: str,
-          mode: int=F_REPLACE,
+          mode: int = F_REPLACE,
           *,
           unsupported_mode: int,
           enter_func: Callable[[str, str, int], None]) -> None:
@@ -172,7 +172,7 @@ def entry(src: Paths,
         enter_func(p, dest, mode)
 
 
-def copy(src: Paths, dest: str, mode: int=F_REPLACE) -> None:
+def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
     """Copies a file or directory from a source path to a destination path.
 
     For src is a normal string.
@@ -221,7 +221,7 @@ def copy(src: Paths, dest: str, mode: int=F_REPLACE) -> None:
     return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_copy)
 
 
-def _copy(src: str, dest: str, mode: int=F_REPLACE) -> None:
+def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
     """ Copies a file or directory from a source path to a destination path.
 
     Mainly function of copy
@@ -263,7 +263,7 @@ def _copy(src: str, dest: str, mode: int=F_REPLACE) -> None:
     return _copyfile(src=src, dest=dest, mode=mode)
 
 
-def _copyfile(src: str, dest: str, mode: int=F_REPLACE) -> None:
+def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
     """ Copies a file from a source path to a destination path.
 
     Args:
@@ -294,7 +294,7 @@ def _copyfile(src: str, dest: str, mode: int=F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _copytree(src: str, dest: str, mode: int=F_REPLACE) -> None:
+def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
     """
     Copies a directory from a source path to a destination path.
     Args:
@@ -325,7 +325,7 @@ def _copytree(src: str, dest: str, mode: int=F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _remove(path: str, dest: str="", mode: int=F_NOSET) -> None:
+def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
     """Removes a file or directory from a source path.
     Args:
         path (str): The source file or directory path to remove.
@@ -363,7 +363,7 @@ def _remove(path: str, dest: str="", mode: int=F_NOSET) -> None:
         raise FileRemoveError(f"Can't remove file '{path}'{os.stat(path)}")
 
 
-def remove(src: Paths, mode: int=F_NOSET) -> None:
+def remove(src: Paths, mode: int = F_NOSET) -> None:
     """Removes a file or directory from a source path.
 
     Both F_RM_DIR and F_RM_FILE are set by default.
@@ -387,7 +387,7 @@ def remove(src: Paths, mode: int=F_NOSET) -> None:
     return entry(src, "", mode, unsupported_mode=F_REPLACE | F_UPDATE | F_IGNORE, enter_func=_remove)
 
 
-def _move(src: str, dest: str, mode: int=F_FORCE) -> None:
+def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
     """ Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -418,7 +418,7 @@ def _move(src: str, dest: str, mode: int=F_FORCE) -> None:
     _remove(src, dest, mode=mode)
 
 
-def move(src: Paths, dest: str, mode: int=F_FORCE) -> None:
+def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
     """Moves a file or directory from a source path to a destination path.
 
     Args:
