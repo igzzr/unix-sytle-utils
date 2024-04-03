@@ -20,7 +20,7 @@ import os
 import re
 import shutil
 import stat
-from typing import Callable
+from typing import Callable, Tuple
 from typing import List, Set, Union
 
 from .defines import PLATFORM, WINDOWS, UNIX, WINDOWS_MAX_PATH
@@ -414,18 +414,15 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
         None
     """
 
-    def _sig(file):
-        st = os.stat(file)
-        return stat.S_IFMT(st.st_mode)
-
     if not mode & F_FORCE and os.path.exists(dest):
         raise FileMoveError(f"Can't move '{src}' to '{dest}': File exists.")
 
     # in the same directory
     if os.path.dirname(src) == os.path.dirname(dest):
-        if _sig(src) != _sig(dest):
-            if not mode & F_RECURSIVE:
-                raise FileMoveError(f"Can't move '{src}' to '{dest}': Different file type.")
+        _sig_src: Tuple = _sig(src)
+        _sig_dest: Tuple = _sig(dest)
+        if _sig_src[0] != _sig_dest[0] and not mode & F_RECURSIVE:
+            raise FileMoveError(f"Can't move '{src}' to '{dest}': Different file type.")
         _remove(dest, mode=mode)
         os.rename(src, dest)
         return
@@ -565,7 +562,6 @@ def cmpfile(file1, file2, mode: int) -> bool:
         return _cmp_binaries(file1, file2, bool(mode & C_SHADOW))
     if mode & C_TEXT:
         return _cmp_text(file1, file2, mode)
-
     return False
 
 
@@ -592,4 +588,13 @@ def _cmp_binaries(file1: str, file2: str, shadow=False) -> bool:
 
 
 def _cmp_text(file1: str, file2: str, mode: int) -> bool:
-    pass
+    with open(file1, 'r', encoding='utf-8', errors='ignore') as f1, \
+            open(file2, 'r', encoding='utf-8', errors='ignore') as f2:
+        for line1, line2 in zip(f1, f2):
+            if mode & C_IGNORE_BLANK_LINES and not line1.strip() and not line2.strip():
+                continue
+            if mode & C_IGNORE_CASE and line1.lower() != line2.lower():
+                return False
+            if line1 != line2:
+                return False
+        return True
