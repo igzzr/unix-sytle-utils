@@ -52,27 +52,37 @@ VALUE2NAME = {
     F_RM_EMPTY: 'F_RM_EMPTY',
     F_REPLACE: 'F_REPLACE',
 }
-NAME2VALUE = {}
-for k, v in VALUE2NAME.items():
-    NAME2VALUE[v] = k
+
+NAME2VALUE = {
+    'F_NOSET': F_NOSET,
+    'F_FORCE': F_FORCE,
+    'F_IGNORE': F_IGNORE,
+    'F_RECURSIVE': F_RECURSIVE,
+    'F_UPDATE': F_UPDATE,
+    'F_TARGET_DIRECTORY': F_TARGET_DIRECTORY,
+    'F_RM_DIR': F_RM_DIR,
+    'F_RM_FILE': F_RM_FILE,
+    'F_RM_EMPTY': F_RM_EMPTY,
+    'F_REPLACE': F_REPLACE
+}
 
 Paths = Union[str, List, Set]
 Pattern = Union[str, re.Pattern]
 # endregion cp rm mv global defines
 
 # region cmp global defines
-C_SHADOW = 1  # only compare file sign
-C_BINARY = 2  # compare file as binaries
-C_TEXT = 4  # compare file as text
-C_IGNORE_BLANK_LINES = 8  # skip blank lines when compare text
-C_IGNORE_CASE = 16  # ignore case when compare text
-C_RECURSIVE = 32  # compare files recursively
+C_SHALLOW = 256  # only compare file sign
+C_BINARY = 512  # compare file as binaries
+C_TEXT = 1024  # compare file as text
+C_IGNORE_BLANK_LINES = 2048  # skip blank lines when compare text
+C_IGNORE_CASE = 4096  # ignore case when compare text
 BUFFER_SIZE = 1024 * 4  # 1 page
 
-_cache = {}
-
+_CACHE_MAX_LEN = 100  # the max length of _cache
+_cache = {}  # key: Tuple[file1, file2, _sig(file1), _sig(file2)] value: bool
 
 # endregion cmp global defines
+
 
 def _generate_dirs(path: str) -> None:
     """Generates directories for a given path.
@@ -117,7 +127,7 @@ def _copy_by_command(src: str, dest: str) -> None:
         raise OSError(f"Can't copy file '{src}' to '{dest}'")
 
 
-def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copy_recursively(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """Recursively copy files from source directory to destination directory.
 
     Args:
@@ -144,10 +154,10 @@ def _copy_recursively(src: str, dest: str, mode: int = F_REPLACE) -> None:
 
 def entry(src: Paths,
           dest: str,
-          mode: int = F_REPLACE,
+          mode: int=F_REPLACE,
           *,
           unsupported_mode: int,
-          enter_func: Callable[[str, str, int], None]) -> None:
+          func: Callable[[str, str, int], None]) -> None:
     """Entry function for file operations.
 
     This function serves as an entry point for file operations such as copy, move, and remove.
@@ -158,7 +168,7 @@ def entry(src: Paths,
         dest (str): The destination path.
         mode (int, optional): The mode of operation. Defaults to F_REPLACE.
         unsupported_mode (int): The mode that is not supported by the operation.
-        enter_func (Callable[[str, str, int], None]): The function to be called for the operation.
+        func (Callable[[str, str, int], None]): The function to be called for the operation.
 
     Raises:
         UnsupportedModeError: If the mode of operation is not supported.
@@ -184,10 +194,10 @@ def entry(src: Paths,
     else:
         raise TypeError(f"The type of 'src' must be one of {Paths}")
     for p in paths:
-        enter_func(p, dest, mode)
+        func(p, dest, mode)
 
 
-def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
+def copy(src: Paths, dest: str, mode: int=F_REPLACE) -> None:
     """Copies a file or directory from a source path to a destination path.
 
     For src is a normal string.
@@ -233,10 +243,10 @@ def copy(src: Paths, dest: str, mode: int = F_REPLACE) -> None:
     Returns:
         None
     """
-    return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_copy)
+    return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, func=_copy)
 
 
-def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copy(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """ Copies a file or directory from a source path to a destination path.
 
     Mainly function of copy
@@ -278,7 +288,7 @@ def _copy(src: str, dest: str, mode: int = F_REPLACE) -> None:
     return _copyfile(src=src, dest=dest, mode=mode)
 
 
-def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copyfile(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """ Copies a file from a source path to a destination path.
 
     Args:
@@ -309,7 +319,7 @@ def _copyfile(src: str, dest: str, mode: int = F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
+def _copytree(src: str, dest: str, mode: int=F_REPLACE) -> None:
     """
     Copies a directory from a source path to a destination path.
     Args:
@@ -340,7 +350,7 @@ def _copytree(src: str, dest: str, mode: int = F_REPLACE) -> None:
         _copy_by_command(src, dest)
 
 
-def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
+def _remove(path: str, dest: str="", mode: int=F_NOSET) -> None:
     """Removes a file or directory from a source path.
     Args:
         path (str): The source file or directory path to remove.
@@ -378,7 +388,7 @@ def _remove(path: str, dest: str = "", mode: int = F_NOSET) -> None:
         raise FileRemoveError(f"Can't remove file '{path}'{os.stat(path)}")
 
 
-def remove(src: Paths, mode: int = F_NOSET) -> None:
+def remove(src: Paths, mode: int=F_NOSET) -> None:
     """Removes a file or directory from a source path.
 
     Both F_RM_DIR and F_RM_FILE are set by default.
@@ -399,10 +409,10 @@ def remove(src: Paths, mode: int = F_NOSET) -> None:
     Returns:
         None
     """
-    return entry(src, "", mode, unsupported_mode=F_REPLACE | F_UPDATE | F_IGNORE, enter_func=_remove)
+    return entry(src, "", mode, unsupported_mode=F_REPLACE | F_UPDATE | F_IGNORE | F_TARGET_DIRECTORY, func=_remove)
 
 
-def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
+def _move(src: str, dest: str, mode: int=F_FORCE) -> None:
     """ Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -422,7 +432,9 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
         _sig_src: Tuple = _sig(src)
         _sig_dest: Tuple = _sig(dest)
         if _sig_src[0] != _sig_dest[0] and not mode & F_RECURSIVE:
+            _cache.clear()
             raise FileMoveError(f"Can't move '{src}' to '{dest}': Different file type.")
+        _cache.clear()
         _remove(dest, mode=mode)
         os.rename(src, dest)
         return
@@ -430,7 +442,7 @@ def _move(src: str, dest: str, mode: int = F_FORCE) -> None:
     _remove(src, dest, mode=mode)
 
 
-def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
+def move(src: Paths, dest: str, mode: int=F_FORCE) -> None:
     """Moves a file or directory from a source path to a destination path.
 
     Args:
@@ -447,7 +459,7 @@ def move(src: Paths, dest: str, mode: int = F_FORCE) -> None:
     Returns:
         None
     """
-    return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, enter_func=_move)
+    return entry(src, dest, mode, unsupported_mode=F_RM_DIR | F_RM_FILE | F_RM_EMPTY, func=_move)
 
 
 def _grep_file(anchor: str, regex: Pattern, index: int, encoding='utf-8') -> List[str]:
@@ -539,55 +551,119 @@ def grep(anchor: str, regex: Pattern, index=0, encoding='utf-8') -> List[str]:
     return _grep_string(anchor, regex, index)
 
 
-def _sig(file):
+def _sig(file) -> Tuple[int, int, float]:
+    """Get the signature of a file.
+
+    Args:
+        file (str): The file to get the signature of.
+
+    Returns:
+        Tuple[int, int, float]: A tuple containing the file type, size, and modification time.
+    """
     st = os.stat(file)
     sign = (stat.S_IFMT(st.st_mode),
             st.st_size,
             st.st_mtime)
-    _cache[file] = sign
     return sign
 
 
-def cmpfile(file1, file2, mode: int) -> bool:
+def cmpfile(file1: str, file2: str, mode: int) -> bool:
+    """Compare two files based on the given mode.
+
+    This function compares two files based on the given mode. The mode can be a combination of the following flags:
+
+    - C_SHALLOW: Only checks the metadata of the files (size, modification time).
+
+    - C_TEXT: Compares the files as text files.
+
+    - C_BINARY: Compares the files as binary files. if both C_BINARY and C_SHALLOW are set, C_SHALLOW means whether the file1 is in file2.
+
+    - C_IGNORE_BLANK_LINES: Ignores blank lines when comparing text files.
+
+    - C_IGNORE_CASE: Ignores case when comparing text files.
+
+    Args:
+        file1 (str): The path to the first file to compare.
+        file2 (str): The path to the second file to compare.
+        mode (int): The mode to use for comparison. Flags C_SHALLOW,
+
+    Raises:
+        UnsupportedModeError: If both C_SHALLOW and C_TEXT are set, or if both C_BINARY and C_TEXT are set.
+        InvalidArgType: If non-regular files are being compared.
+
+    Returns:
+        bool: True if the files are considered the same based on the given mode, False otherwise.
+    """
+    if mode & C_SHALLOW and mode & C_TEXT:
+        raise UnsupportedModeError("Can't set both C_SHALLOW and C_TEXT")
+
+    if mode & C_BINARY and mode & C_TEXT:
+        raise UnsupportedModeError("Can't set both C_BINARY and C_TEXT")
+
     if file1 == file2:
         return True
+
     s1 = _sig(file1)
     s2 = _sig(file2)
     if s1[0] != stat.S_IFREG or s2[0] != stat.S_IFREG:
-        return False
-    if s2 == s1 and mode & C_SHADOW and not mode & C_BINARY:
+        raise InvalidArgType("Can't compare non-regular files.")
+
+    if s2 == s1 and mode & C_SHALLOW and not mode & C_BINARY:
         return True
+
+    outcome = _cache.get((file1, file2, s1, s2))
+    if outcome is not None:
+        return outcome
+
     if mode & C_BINARY:
-        # when compare binary ,shadow means whether the file1 is inner file2
-        return _cmp_binaries(file1, file2, bool(mode & C_SHADOW))
+        # when compare binary ,shallow means whether the file1 is in file2
+        if s1[1] != s2[1] and not mode & C_SHALLOW:
+            return False
+        if s1[1] > s2[1]:
+            return False
+        outcome = _cmp_binaries(file1, file2)
+
     if mode & C_TEXT:
-        return _cmp_text(file1, file2, mode)
-    return False
+        outcome = _cmp_text(file1, file2, mode)
+
+    if len(_cache) > _CACHE_MAX_LEN:
+        _cache.clear()
+    _cache[(file1, file2, s1, s2)] = outcome
+
+    return outcome
 
 
-def _cmp_binaries(file1: str, file2: str, shadow=False) -> bool:
-    s1 = _cache.get(file1)
-    s2 = _cache.get(file2)
-    len1 = s1[1]
-    len2 = s2[1]
-    if len1 != len2 and not shadow:
-        return False
-    if len1 > len2:
-        return False
+def _cmp_binaries(file1: str, file2: str) -> bool:
+    """Compare two binary files.
 
+    Args:
+        file1 (str): The first binary file to compare.
+        file2 (str): The second binary file to compare.
+
+    Returns:
+        bool: True if the binary files are the same, False otherwise.
+    """
     with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
-        index = 0
-        while index < len1:
+        while f1.readable():
             b1 = f1.read(BUFFER_SIZE)
-            b2 = f2.read(BUFFER_SIZE)
+            b2 = f2.read(len(b1))
             if b1 != b2:
                 return False
             if not b1:
                 return True
-            index += len(b1)
 
 
 def _cmp_text(file1: str, file2: str, mode: int) -> bool:
+    """Compare two text files.
+
+    Args:
+        file1 (str): The first text file to compare.
+        file2 (str): The second text file to compare.
+        mode (int): The mode to use for comparison.
+
+    Returns:
+        bool: True if the text files are the same, False otherwise.
+    """
     with open(file1, 'r', encoding='utf-8', errors='ignore') as f1, \
             open(file2, 'r', encoding='utf-8', errors='ignore') as f2:
         for line1, line2 in zip(f1, f2):
@@ -598,3 +674,27 @@ def _cmp_text(file1: str, file2: str, mode: int) -> bool:
             if line1 != line2:
                 return False
         return True
+
+
+def cmpdir(dir1: str, dir2: str, mode: int) -> bool:
+    """Compare two directories.
+
+    Args:
+        dir1 (str): The first directory to compare.
+        dir2 (str): The second directory to compare.
+        mode (int): The mode to use for comparison.
+
+    Returns:
+        bool: True if the directories are the same, False otherwise.
+    """
+    if dir1 == dir2:
+        return True
+    if not os.path.isdir(dir1) or not os.path.isdir(dir2):
+        return False
+    for root, dirs, files in os.walk(dir1):
+        for file in files:
+            src = os.path.join(root, file)
+            dest = os.path.join(dir2, os.path.relpath(src, dir1))
+            if not cmpfile(src, dest, mode):
+                return False
+    return True
